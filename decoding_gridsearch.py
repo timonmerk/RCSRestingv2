@@ -38,7 +38,8 @@ locs = [ "SC_L_", "C_L_1_", "C_L_2_", "C_R_1_", "C_R_2_", "SC_R_"]
 #compute_ml(df_features, col_score, "Hjorth", "XGB", "SC_L_")
 #compute_ml(df_features, col_score, "fft_only", "XGB","SC_L_")
 #compute_ml(df_features, col_score, "fft_psd", "XGB","SC_L_" )
-#compute_ml(df_features, col_score, "alpha", "XGB", "SC_L_")
+#compute_ml(df_features, col_score, "all", "Linear", "C_R_1_")
+#compute_ml(df_features, col_score, "all", "Linear", "SC_L_")
 
 # results = []
 # for model_type in tqdm(ML_models):

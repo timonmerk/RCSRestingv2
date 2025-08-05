@@ -13,6 +13,19 @@ from datetime import datetime
 import numpy as np
 import seaborn as sns
 
+def concordance_correlation_coefficient(y_true, y_pred):
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+
+    mean_true = np.mean(y_true)
+    mean_pred = np.mean(y_pred)
+    var_true = np.var(y_true)
+    var_pred = np.var(y_pred)
+    covariance = np.mean((y_true - mean_true) * (y_pred - mean_pred))
+
+    ccc = (2 * covariance) / (var_true + var_pred + (mean_true - mean_pred)**2)
+    return ccc
+
 def compute_ml(df_features : pd.DataFrame, col_score: str,
                feature: str,
                model_type: str = "XGB",
@@ -31,8 +44,11 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
 
         if loc != "all":
             cols_use_loc = [col for col in X_train.columns if col.startswith(loc) and "corr" not in col]
+            # limit also columns that contain fft_psd_xyz to be int(xyz) < 124
         else:
             cols_use_loc = [col for col in list(X_train.columns) if "corr" not in col]
+
+        cols_use_loc = [col for col in cols_use_loc if (col.split("_")[-1].isdigit() and "fft_psd" in col and int(col.split("_")[-1]) < 124) or "fft_psd" not in col]
 
         X_train_loc = X_train[cols_use_loc]
         X_test_loc = X_test[cols_use_loc]
@@ -113,6 +129,8 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
             true_.append(y_test)
         per = corr
 
+        ccc = concordance_correlation_coefficient(y_test, y_pred)
+
         first_months = dates < (dates.iloc[0] + pd.DateOffset(months=num_months))
         #idx_first_months = np.where(first_months)[0]
         y_test_first_months = y_test[first_months]
@@ -130,6 +148,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
         per_.append({
             "per" : per,
             "p_value": p,
+            "ccc":ccc,
             "per_ba_class" : per_ba,
             "subject": sub,
             "model": model_type,
