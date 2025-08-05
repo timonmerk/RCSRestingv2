@@ -39,7 +39,10 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
                 if feature == "theta" or feature == "alpha" or feature == "beta" or feature == "gamma" or feature == "delta":
                     cols_use_feature = [col for col in X_train_loc.columns if feature in col and "fft" not in col and "burst" not in col]
                 else:
-                    cols_use_feature = [col for col in X_train_loc.columns if feature in col and int(col.split("_")[-1]) < 124]
+                    if feature == "fft_psd":
+                        cols_use_feature = [col for col in X_train_loc.columns if feature in col and int(col.split("_")[-1]) < 124]
+                    else:
+                        cols_use_feature = [col for col in X_train_loc.columns if feature in col]
             else:
                 cols_use_feature = [col for col in X_train_loc.columns if "fft" in col and "psd" not in col]
             X_train_feature = X_train_loc[cols_use_feature]

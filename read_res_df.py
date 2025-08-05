@@ -7,6 +7,9 @@ from tqdm import tqdm
 from scipy import stats
 from matplotlib import pyplot as plt
 from datetime import datetime
+from tqdm_joblib import tqdm_joblib
+from joblib import Parallel, delayed
+
 
 def get_date(f, ):
     idx_start = f.find("resting-state")
@@ -124,7 +127,7 @@ if READ_FEATURES_COMBINED:
 else:
     df_ = pd.read_csv("features_prep_combined.csv")
 
-GROUP_FEATURES_FOR_DECODING = True
+GROUP_FEATURES_FOR_DECODING = False
 
 if GROUP_FEATURES_FOR_DECODING:
     def get_date(f, ):
@@ -188,54 +191,81 @@ features_names = df_["feature_name"].unique()
 chs_plt = ["VCVS_left", "VCVS_right", "Cortex_left", "Cortex_right"]
 chs_plt = df_["new_ch"].unique().tolist()
 #plt.figure()
-df_res = []
-for score in tqdm(SCORE_COLUMNS):
-    for ch_plt in chs_plt:
-        unimodal_features = [f for f in df_["feature_name"].unique() if not("_C_" in f and "_SC_" in f) and "_corr_" not in f and "fft_psd" not in f]
-        for feature_ in unimodal_features:
-            try:
-                for sub in df_["subject"].unique():
-                    df_sub = df_.query("subject == @sub and feature_name == @feature_ and new_ch == @ch_plt")
-                    df_sub["date"] = df_sub["file"].apply(lambda x: convert_to_datetime(get_date(x)))
-                    df_f_g_ = df_sub.groupby("date")[["feature_value", score]].mean() # was before by file
-                    if df_f_g_.shape[0] < 2:
-                        continue
-                    idx_not_na = df_f_g_.index[df_f_g_[score].notna() & df_f_g_["feature_value"].notna()]
-                    if len(idx_not_na) < 2 or df_f_g_["feature_value"].nunique() == 1 or df_f_g_[score].nunique() == 1:  # constant feature value
-                        continue
-                    df_f_g_ = df_f_g_.loc[idx_not_na]
-                    corr, p = stats.pearsonr(df_f_g_["feature_value"], df_f_g_[score])
-                    if np.isnan(corr) or np.isnan(p):
-                        print("brak")
-                    df_res.append({
-                        "subject": sub,
-                        "feature_name": feature_,
-                        "channel": ch_plt,
-                        "correlation": corr,
-                        "p_value": p,
-                        "score_column" : score
-                    })
-                df_all = df_.query("feature_name == @feature_ and new_ch == @ch_plt")
-                df_f_g_all = df_all.groupby("file")[["feature_value", score]].mean()
-                idx_not_na = df_f_g_all.index[df_f_g_all[score].notna() & df_f_g_all["feature_value"].notna()]
-                if len(idx_not_na) < 2 or df_f_g_all["feature_value"].nunique() == 1 or df_f_g_all[score].nunique() == 1:  # constant feature value
-                    continue
-                df_f_g_all = df_f_g_all.loc[idx_not_na]
-                corr, p = stats.pearsonr(df_f_g_all["feature_value"], df_f_g_all[score])
-                df_res.append({
-                    "subject": "ALL",
-                    "feature_name": feature_,
-                    "channel": ch_plt,
-                    "correlation": corr,
-                    "p_value": p,
-                    "score_column" : score
-                })
-            except Exception as e:
-                print(f"Error processing feature {feature_} for subject {sub} in channel {ch_plt}: {e}")
+
+def process_feature(score, ch_plt, feature_, df_):
+    results = []
+    try:
+        for sub in df_["subject"].unique():
+            df_sub = df_.query("subject == @sub and feature_name == @feature_ and new_ch == @ch_plt").copy()
+            df_sub["date"] = df_sub["file"].apply(lambda x: convert_to_datetime(get_date(x)))
+            df_f_g_ = df_sub.groupby("date")[["feature_value", score]].mean()
+
+            if df_f_g_.shape[0] < 2:
                 continue
 
-        
+            idx_not_na = df_f_g_.index[df_f_g_[score].notna() & df_f_g_["feature_value"].notna()]
+            if len(idx_not_na) < 2 or df_f_g_["feature_value"].nunique() == 1 or df_f_g_[score].nunique() == 1:
+                continue
+
+            df_f_g_ = df_f_g_.loc[idx_not_na]
+            corr, p = stats.pearsonr(df_f_g_["feature_value"], df_f_g_[score])
+            if np.isnan(corr) or np.isnan(p):
+                continue
+            results.append({
+                "subject": sub,
+                "feature_name": feature_,
+                "channel": ch_plt,
+                "correlation": corr,
+                "p_value": p,
+                "score_column": score
+            })
+
+        # All subjects
+        df_all = df_.query("feature_name == @feature_ and new_ch == @ch_plt").copy()
+        df_f_g_all = df_all.groupby("file")[["feature_value", score]].mean()
+        idx_not_na = df_f_g_all.index[df_f_g_all[score].notna() & df_f_g_all["feature_value"].notna()]
+        if len(idx_not_na) < 2 or df_f_g_all["feature_value"].nunique() == 1 or df_f_g_all[score].nunique() == 1:
+            return results
+
+        df_f_g_all = df_f_g_all.loc[idx_not_na]
+        corr, p = stats.pearsonr(df_f_g_all["feature_value"], df_f_g_all[score])
+        results.append({
+            "subject": "ALL",
+            "feature_name": feature_,
+            "channel": ch_plt,
+            "correlation": corr,
+            "p_value": p,
+            "score_column": score
+        })
+    except Exception as e:
+        print(f"Error: {feature_} / {score} / {ch_plt} → {e}")
+    return results
+
+unimodal_features = [
+    f for f in df_["feature_name"].unique()
+    if not("_C_" in f and "_SC_" in f)
+    and "_corr_" not in f
+    and "fft_psd" not in f
+]
+
+tasks = [
+    (score, ch_plt, feature_)
+    for score in SCORE_COLUMNS
+    for ch_plt in chs_plt
+    for feature_ in unimodal_features
+]
+
+with tqdm_joblib(tqdm(desc="Computing correlations", total=len(tasks))):
+    df_res_nested = Parallel(n_jobs=40)(
+        delayed(process_feature)(score, ch_plt, feature_, df_)
+        for score, ch_plt, feature_ in tasks
+    )
+
+from itertools import chain
+
+df_res = list(chain.from_iterable(df_res_nested))
 df_res = pd.DataFrame(df_res)
+
 df_res.to_csv("correlation_features.csv", index=False)
 
 # add a subject ALL, for which the correlation across all subjects is calculated

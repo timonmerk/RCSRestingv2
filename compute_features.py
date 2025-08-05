@@ -226,5 +226,5 @@ def compute_file(file_):
         pickle.dump(coh_spectra, f)
 
 # use joblib to run in parallel
-compute_file(files[0])  # Test with the first file to ensure everything works
-Parallel(n_jobs=-1, verbose=0)(delayed(compute_file)(file_) for file_ in tqdm(files, desc="Computing features"))
+#compute_file(files[0])  # Test with the first file to ensure everything works
+Parallel(n_jobs=40, verbose=0)(delayed(compute_file)(file_) for file_ in tqdm(files, desc="Computing features"))
