@@ -1,0 +1,23 @@
+# plot raw data and write out clean data pickle files
+plot_raw_data.py
+
+read_data.m
+read_data.py
+
+# scores: 
+map_scores/
+get_scores_from_sheet.py
+
+compute_features.py
+
+read_res_coh.py
+read_res_spec.py
+
+# write out features_prep_combined.csv and correlation_features.csv
+read_res_df.py
+
+decoding_gridsearch.py
+
+# piechart
+plot_best_feature_modalities.py
+

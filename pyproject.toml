@@ -1,0 +1,26 @@
+[project]
+name = "resting-state-ocd"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "catboost>=1.2.8",
+    "fooof>=1.1.1",
+    "joblib>=1.5.1",
+    "matplotlib>=3.10.3",
+    "mne>=1.9.0",
+    "mne-connectivity>=0.7.0",
+    "numpy>=2.3.1",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.0",
+    "pyparrm",
+    "pywavelets>=1.8.0",
+    "scipy>=1.16.0",
+    "seaborn>=0.13.2",
+    "xgboost>=3.0.2",
+    "xmltodict>=0.14.2",
+]
+
+[tool.uv.sources]
+pyparrm = { git = "https://github.com/neuromodulation/PyPARRM.git" }
