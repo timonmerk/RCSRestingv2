@@ -64,34 +64,3 @@ df_results = pd.concat([pd.DataFrame(res) for res in results], ignore_index=True
 df_results["model_type"] = df_results["model"] + "_" + df_results["feature"]
 
 df_results.to_csv("results_ml.csv", index=False)
-
-
-plt.figure(figsize=(8, 5))
-df_plt = df_results.copy()
-order_ = df_plt.groupby("model_type")["per"].mean().sort_values(ascending=False).index.tolist()
-sns.boxplot(data=df_plt, x="model_type", y="per", order=order_, showmeans=True)
-plt.xticks(rotation=90)
-sns.swarmplot(data=df_plt, x="model_type", y="per", color=".25", order=order_)
-plt.ylabel("Person correlation coefficient") 
-plt.title(f"ML LOSO Classification" if CLASSIFICATION_ else "ML LOSO Regression")
-plt.tight_layout()
-plt.savefig("figures/decoding/ml_classification_rolling_window.pdf") if CLASSIFICATION_ else plt.savefig("figures/decoding/ml_regression.pdf")
-plt.show(block=True)
-
-
-plt.figure(figsize=(8, 5))
-df_plt = df_results.query("CLASSIFICATION == @CLASSIFICATION_").copy()
-order_ = df_plt.groupby("model_type")["per"].mean().sort_values(ascending=False).index.tolist()
-sns.boxplot(data=df_results.query("CLASSIFICATION == @CLASSIFICATION_"), x="model_type", y="per", order=order_, showmeans=True)
-if CLASSIFICATION_:
-    plt.axhline(0.5, color="gray", linestyle="--", label="Chance level")
-plt.xticks(rotation=90)
-sns.swarmplot(data=df_results.query("CLASSIFICATION == @CLASSIFICATION_"), x="model_type", y="per", color=".25", order=order_)
-plt.ylabel("Person correlation coefficient") if CLASSIFICATION_ is False else plt.ylabel("Balanced accuracy")
-plt.title(f"ML LOSO Classification" if CLASSIFICATION_ else "ML LOSO Regression")
-
-plt.tight_layout()
-plt.savefig("figures/decoding/ml_classification.pdf") if CLASSIFICATION_ else plt.savefig("figures/decoding/ml_regression.pdf")
-plt.show(block=True)
-
-df_results.query("CLASSIFICATION == False and model_type == 'XGB_burst'")

@@ -17,9 +17,12 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
                feature: str,
                model_type: str = "XGB",
                loc: str = "SC_L_",
-               num_months: int = 3):
+               num_months: int = 3,
+               return_pred: bool = False):
 
     per_ = []
+    pred_ = []
+    true_ = []
     per_ba = None
     for idx, sub in enumerate(df_features["subject"].unique()):
 
@@ -27,7 +30,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
         X_test = df_features.query("subject == @sub").drop(columns=["subject", col_score, "date"])
 
         if loc != "all":
-            cols_use_loc = [col for col in X_train.columns if col.startswith(loc)]
+            cols_use_loc = [col for col in X_train.columns if col.startswith(loc) and "corr" not in col]
         else:
             cols_use_loc = list(X_train.columns)
         
@@ -105,6 +108,9 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
         y_pred = model.predict(X_test_feature)
         
         corr, p = stats.pearsonr(y_test, y_pred)
+        if return_pred:
+            pred_.append(y_pred)
+            true_.append(y_test)
         per = corr
 
         first_months = dates < (dates.iloc[0] + pd.DateOffset(months=num_months))
@@ -134,4 +140,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
             "loc" : loc,
         })
 
-    return per_
+    if return_pred:
+        return per_, pred_, true_
+    else:
+        return per_

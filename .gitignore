@@ -7,3 +7,9 @@ features_prep_combined.csv
 features_out/*
 DS_Store
 *.DS_Store
+data_002/*
+data_003/*
+else/*
+*.pdf
+figures/*
+catboost_info/*
