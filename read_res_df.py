@@ -272,7 +272,6 @@ df_res.to_csv("correlation_features.csv", index=False)
 
 
 # show in four boxes
-score_column = "YBOCS II-Obsessions Sub-score"
 score_column = "YBOCS II-Compulsions Sub-score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
 plt.figure(figsize=(12, 15))
 for i, ch in enumerate(df_res["channel"].unique()):
