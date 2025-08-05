@@ -32,8 +32,8 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
         if loc != "all":
             cols_use_loc = [col for col in X_train.columns if col.startswith(loc) and "corr" not in col]
         else:
-            cols_use_loc = list(X_train.columns)
-        
+            cols_use_loc = [col for col in list(X_train.columns) if "corr" not in col]
+
         X_train_loc = X_train[cols_use_loc]
         X_test_loc = X_test[cols_use_loc]
 
