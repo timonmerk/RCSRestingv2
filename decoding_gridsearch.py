@@ -29,11 +29,13 @@ col_score = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YB
 ML_models = ["NeuralNet", "SVR_rbf", "RF", "Linear", "XGB", "SVR_linear"]
 #feature_mods = ["all", "fooof", "psd", "Sharpwave", "burst", "raw", "Hjorth", "burst_low_f"]
 feature_mods = ["fft_only", "fft_psd", "Hjorth", "Sharpwave", "fooof", "coherence", "burst", "all", "alpha", "beta", "delta", "gamma", "theta", "burst_amplitude", "burst_duration"]
-locs = [ "SC_L_", "C_L_1_", "C_L_2_", "C_R_1_", "C_R_2_", "SC_R_"]
+locs = [ "SC_L_", "C_L_1_", "C_L_2_", "C_R_1_", "C_R_2_", "SC_R_", "all"]
+pca_ = [False, True]
 # compute_ml(df_features, col_score=col_score,
 #            feature="burst",
 #            model_type="XGB",
-#            loc="SC_L")
+#            loc="SC_L",
+#               pca=True)
 
 #compute_ml(df_features, col_score, "Hjorth", "XGB", "SC_L_")
 #compute_ml(df_features, col_score, "fft_only", "XGB","SC_L_")
@@ -50,10 +52,11 @@ locs = [ "SC_L_", "C_L_1_", "C_L_2_", "C_R_1_", "C_R_2_", "SC_R_"]
 #                 results.append(per_)
 
 tasks = [
-    delayed(compute_ml)(df_features, col_score, feature_mod, model_type, loc)
+    delayed(compute_ml)(df_features, col_score, feature_mod, model_type, loc, pca)
     for model_type in ML_models
     for loc in locs
     for feature_mod in feature_mods
+    for pca in pca_
 ]
 
 with tqdm_joblib(tqdm(desc="Running ML models", total=len(tasks))):

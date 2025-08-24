@@ -127,7 +127,7 @@ if READ_FEATURES_COMBINED:
 else:
     df_ = pd.read_csv("features_prep_combined.csv")
 
-GROUP_FEATURES_FOR_DECODING = False
+GROUP_FEATURES_FOR_DECODING = True
 
 if GROUP_FEATURES_FOR_DECODING:
     def get_date(f, ):
@@ -150,25 +150,32 @@ if GROUP_FEATURES_FOR_DECODING:
 
     df_ = pd.read_csv("features_prep_combined.csv")
     #df_loc = df_.query("new_ch == 'VCVS_left'")
-    col_score = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
-    df_features = df_.groupby(["file", "feature_name", "new_ch"])[[col_score, "feature_value"]].mean().reset_index()
+
+    # replace all Object entried in SCORE_COLUMNS with NaN
+    for col in SCORE_COLUMNS:
+        df_[col] = pd.to_numeric(df_[col], errors='coerce')
+    df_features = df_.groupby(["file", "feature_name", "new_ch"])[SCORE_COLUMNS + ["feature_value"]].mean().reset_index()
     df_features["date"] = df_features["file"].apply(get_date)
     df_features["date"] = df_features["date"].apply(convert_to_datetime)
     df_["date"] = df_["file"].apply(get_date)
     df_["date"] = df_["date"].apply(convert_to_datetime)
     df_features["subject"] = df_features["file"].apply(lambda x: x.split("_")[0])
-
     df_features = df_features.pivot_table(index=["file", "new_ch"], columns="feature_name", values="feature_value").reset_index()
-    df_features[col_score] = df_.groupby(["file", "new_ch"])[col_score].mean().values
+
+    #col_score = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
+    for col_score in SCORE_COLUMNS:
+        df_features[col_score] = df_.groupby(["file", "new_ch"])[col_score].mean().values
+
     df_features["date"] = df_features["file"].apply(get_date)
     df_features["date"] = df_features["date"].apply(convert_to_datetime)
     df_features["subject"] = df_features["file"].apply(lambda x: x.split("_")[0])
     df_features = df_features.reset_index(drop=True)
 
-    cols_features = [c for c in df_features.columns if c not in ["file", "date", "subject", col_score, "new_ch"]]
+    cols_features = [c for c in df_features.columns if c not in ["file", "date", "subject", "new_ch"] + SCORE_COLUMNS]
 
     df_features = df_features.groupby(["subject", "date", "new_ch"])[cols_features].mean().reset_index()
-    df_features[col_score] = df_.groupby(["subject", "date", "new_ch"])[col_score].mean().values
+    for col_score in SCORE_COLUMNS:
+        df_features[col_score] = df_.groupby(["subject", "date", "new_ch"])[col_score].mean().values
 
     # Step 2: Rename columns to include 'new_ch_' prefix
     df_features_renamed = df_features.copy()
@@ -184,7 +191,8 @@ if GROUP_FEATURES_FOR_DECODING:
 
     # Step 5: Reset index if needed
     df_pivot = df_pivot.reset_index()
-    df_pivot[col_score] = df_features.groupby(["subject", "date"])[col_score].mean().values
+    for col_score in SCORE_COLUMNS:
+        df_pivot[col_score] = df_features.groupby(["subject", "date"])[col_score].mean().values
     df_pivot.to_csv("features_prep_combined_wide.csv", index=False)
 
 features_names = df_["feature_name"].unique()

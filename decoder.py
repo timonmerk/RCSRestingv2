@@ -5,6 +5,7 @@ from catboost import CatBoostRegressor, CatBoostClassifier
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
+from sklearn.decomposition import PCA
 from scipy import stats
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -30,6 +31,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
                feature: str,
                model_type: str = "XGB",
                loc: str = "SC_L_",
+               pca: bool = False,
                num_months: int = 3,
                return_pred: bool = False):
 
@@ -118,6 +120,11 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
             if y_test.shape[0] == 0:
                 #print(f"Skipping {sub} due to empty test set")
                 continue
+        if pca:
+            pca_model = PCA(n_components=min(5, X_train_feature.shape[1], X_train_feature.shape[0]))
+            X_train_feature = pca_model.fit_transform(X_train_feature)
+            X_test_feature = pca_model.transform(X_test_feature)
+
         y_test = y_test.values
         y_train = y_train.values
         model.fit(X_train_feature, y_train)
@@ -157,6 +164,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
             "res_diff_true": res_diff_true,
             "diff_first_last_true_pred": diff_first_last_true_pred,
             "loc" : loc,
+            "pca": pca
         })
 
     if return_pred:
