@@ -104,7 +104,7 @@ def compute_ml(df_features : pd.DataFrame, col_score: str,
         elif model_type == "RF":
             model = RandomForestRegressor()
 
-        if model_type != "XGB":
+        if model_type != "XGB" or pca:
             # remove NaN rows
             idx_nan_all = X_train_feature.index[X_train_feature.isna().any(axis=1)]
             X_train_feature = X_train_feature.drop(index=idx_nan_all)
