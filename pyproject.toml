@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=2.3.0",
     "pyparrm",
     "pywavelets>=1.8.0",
+    "scikit-bio>=0.7.0",
     "scipy>=1.16.0",
     "seaborn>=0.13.2",
     "tqdm-joblib>=0.0.4",

@@ -13,10 +13,19 @@ compute_features.py # on elias: RCSRestingv2
 # write out features_prep_combined.csv and correlation_features.csv
 read_res_df.py
 
+# combine data with stim parameters
+# current pipeline for stim parameters:
+ - Jordan estimated StimParamsCompiled.mat -> merge_stim_rs12.m -> read_stim_parameters.py
+ 
+# (features_prep_wide_per_rs_sess.csv and StimParams_Processed_all_times.csv)
+map_stim_features_res_solved.py -> df_merge_feature_stim_scores.csv
+
 read_res_coh.py
 read_res_spec.py
 
 decoding_gridsearch.py
+
+cca.py # for getting correlations
 
 # piechart
 plot_best_feature_modalities.py

@@ -8,12 +8,48 @@ import tqdm_joblib
 from xgboost import XGBRegressor, XGBClassifier
 import seaborn as sns
 from joblib import Parallel, delayed
+from scipy import stats
 
 df = pd.read_csv("FAUS_rs/fau_neural_combined.csv")
 col_decode = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
 
 subs = df["subject"].unique()
 AU_cols = [col for col in df.columns if col.startswith("FAU_AU")]
+
+### correlation with YBOCS II Total Score
+corr_ = []
+corr_shuffled = []
+
+for sub in subs:
+    df_sub = df.query("subject == @sub")
+    y_true_ = df_sub[col_decode].values
+    for AU_col in AU_cols:
+        y_pred = df_sub[AU_col].values
+        idx_na = np.isnan(y_true_) | np.isnan(y_pred)
+        y_true = y_true_[~idx_na]
+        y_pred = y_pred[~idx_na]
+
+        # get both from stats.pearsonr
+        corr, p_val = stats.pearsonr(y_true, y_pred)
+        corr_.append({
+            "subject": sub,
+            "AU": AU_col,
+            "corr": corr,
+            "p": p_val,
+        })
+        np.random.shuffle(y_true)
+        corr_shuff, p_val_shuff = stats.pearsonr(y_true, y_pred)
+        corr_shuffled.append({
+            "subject": sub,
+            "AU": AU_col,
+            "corr": corr_shuff,
+            "p": p_val_shuff,
+        })
+df_corr = pd.DataFrame(corr_)
+df_corr_shuff = pd.DataFrame(corr_shuffled)
+df_corr_shuff.to_csv("FAUS_rs/fau_neural_decoding_correlation_shuffled.csv", index=False)
+df_corr.to_csv("FAUS_rs/fau_neural_decoding_correlation.csv", index=False)
+
 
 COMPUTE = False
 
@@ -70,6 +106,12 @@ if COMPUTE:
 else:
     df_results = pd.read_csv("FAUS_rs/fau_neural_decoding_results.csv")
 
+df_results.groupby(["AU", "model"])["correlation"].mean().reset_index().sort_values("correlation", ascending=False).head(10)
+model_best = "Linear"
+AU_best = "FAU_AU_R6"
+df_best = df_results.query("model == @model_best and AU == @AU_best")
+df_best.to_csv("/Users/Timon/Documents/Houston/OCD_RCS/OCD_RCS/figure_4_FAU/fau_loso_decoding_ybocs_best.csv")
+
 plt.figure(figsize=(12, 8))
 for idx_, model in enumerate(models):
     df_model = df_results.query("model == @model")
@@ -87,31 +129,11 @@ plt.tight_layout()
 plt.savefig("FAUS_rs/fau_loso_neural_decoding_results.pdf")
 
 
-### correlation with YBOCS II Total Score
-corr_ = []
-
-for sub in subs:
-    df_sub = df.query("subject == @sub")
-    y_true_ = df_sub[col_decode].values
-    for AU_col in AU_cols:
-        y_pred = df_sub[AU_col].values
-        idx_na = np.isnan(y_true_) | np.isnan(y_pred)
-        y_true = y_true_[~idx_na]
-        y_pred = y_pred[~idx_na]
-        corr = np.corrcoef(y_true, y_pred)[0, 1]
-        corr_.append({
-            "subject": sub,
-            "AU": AU_col,
-            "correlation": corr,
-        })
-df_corr = pd.DataFrame(corr_)
-df_corr.to_csv("FAUS_rs/fau_neural_decoding_correlation.csv", index=False)
-
-order_ = df_corr.groupby("AU")["correlation"].mean().sort_values(ascending=False).index
+order_ = df_corr.groupby("AU")["corr"].mean().sort_values(ascending=False).index
 plt.figure(figsize=(12, 8))
-sns.boxplot(x="AU", y="correlation", data=df_corr, showmeans=True,
+sns.boxplot(x="AU", y="corr", data=df_corr, showmeans=True,
             boxprops=dict(alpha=0.5, facecolor='white', edgecolor='black'), showfliers=False, order=order_)
-sns.swarmplot(x="AU", y="correlation", data=df_corr, color=".25", alpha=0.5, order=order_)
+sns.swarmplot(x="AU", y="corr", data=df_corr, color=".25", alpha=0.5, order=order_)
 plt.title("Correlation of AUs with YBOCS II Total Score")
 plt.xlabel("AU Type")
 plt.ylabel("Correlation")

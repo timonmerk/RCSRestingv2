@@ -13,3 +13,9 @@ else/*
 *.pdf
 figures/*
 catboost_info/*
+*.csv
+*.pkl
+*.gif
+*.mat
+
+*.xlsx

@@ -1,0 +1,29 @@
+ - estimated now date-specific stim parameters, but the session-days are all
+ mixed up (rs1 vs rs2, rsx, dbsoff etc)
+- go back to original rs recordings before feature merge
+- in read_res_df.py I have to split the file 
+
+- ok, checked a couple of files, and some are duplicates
+- issue of v2 / v3 for 1. same channel, same date and subject
+- think that it's ok, but definitely have to pick just one
+
+ - I still have to merge all channels 
+ - why are there in the settings table multiple rows for left for the same day?
+ - just because now there exist rs1 and rs2... so that is expected; how to deal with that though?
+ - ok, there can be really off recordings in 1/2
+
+ - ok, ich habe jetzt die settings und feature miteinander kombiniert
+ - d.h. ich habe jetzt für jeden Tag (mit Ausnahmen) rs1 rs2 (kann auch mehr sein, e.g. dbsoff)
+ - allerdings: rs1/2 können auch stim off haben
+ - das macht es jetzt sehr kompliziert diese zu kombinieren.. 
+ - mögliche Vergleiche: rs1 vs rs2 (there was likely a stim parameter change --> check)
+ - 
+
+- also want to figure out, why do some dates only have rs1 and not rs2?
+
+todo für morgen:
+ - vergleiche die features innerhalb eines Tages
+ - vergleiche die stim on trajectory
+
+ muss nochmal gucken wo ich die stim parameter gespeichert habe, vielleicht kann ich die mergen mit den behavior daten
+ 

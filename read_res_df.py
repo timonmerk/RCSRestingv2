@@ -148,52 +148,113 @@ if GROUP_FEATURES_FOR_DECODING:
         return dt_
 
 
+    # --- Load data ---
     df_ = pd.read_csv("features_prep_combined.csv")
-    #df_loc = df_.query("new_ch == 'VCVS_left'")
 
-    # replace all Object entried in SCORE_COLUMNS with NaN
-    for col in SCORE_COLUMNS:
-        df_[col] = pd.to_numeric(df_[col], errors='coerce')
-    df_features = df_.groupby(["file", "feature_name", "new_ch"])[SCORE_COLUMNS + ["feature_value"]].mean().reset_index()
-    df_features["date"] = df_features["file"].apply(get_date)
-    df_features["date"] = df_features["date"].apply(convert_to_datetime)
-    df_["date"] = df_["file"].apply(get_date)
-    df_["date"] = df_["date"].apply(convert_to_datetime)
-    df_features["subject"] = df_features["file"].apply(lambda x: x.split("_")[0])
-    df_features = df_features.pivot_table(index=["file", "new_ch"], columns="feature_name", values="feature_value").reset_index()
+    # --- 1. Ensure SCORE_COLUMNS are numeric in one shot ---
+    df_[SCORE_COLUMNS] = df_[SCORE_COLUMNS].apply(pd.to_numeric, errors='coerce')
 
-    #col_score = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
-    for col_score in SCORE_COLUMNS:
-        df_features[col_score] = df_.groupby(["file", "new_ch"])[col_score].mean().values
+    # --- 2. Parse info from "file" column once ---
+    # assumes "file" looks like "<subject>_<rs_name>_..."
+    file_parts = df_["file"].str.split("_", n=2, expand=True)
+    df_["subject"] = file_parts[0]
+    df_["rs_name"] = file_parts[1]
 
-    df_features["date"] = df_features["file"].apply(get_date)
-    df_features["date"] = df_features["date"].apply(convert_to_datetime)
-    df_features["subject"] = df_features["file"].apply(lambda x: x.split("_")[0])
-    df_features = df_features.reset_index(drop=True)
+    # date: keep your functions but call them only once on df_
+    df_["date"] = df_["file"].apply(lambda x: convert_to_datetime(get_date(x)))
 
-    cols_features = [c for c in df_features.columns if c not in ["file", "date", "subject", "new_ch"] + SCORE_COLUMNS]
+    # --- 3. Aggregate per file / feature / new_ch ---
+    group_cols = ["file", "feature_name", "new_ch"]
 
-    df_features = df_features.groupby(["subject", "date", "new_ch"])[cols_features].mean().reset_index()
-    for col_score in SCORE_COLUMNS:
-        df_features[col_score] = df_.groupby(["subject", "date", "new_ch"])[col_score].mean().values
+    # dictionary for aggregations: mean for scores + feature_value, first for channel
+    agg_dict = {c: "mean" for c in SCORE_COLUMNS + ["feature_value"]}
+    agg_dict["channel"] = "first"
 
-    # Step 2: Rename columns to include 'new_ch_' prefix
-    df_features_renamed = df_features.copy()
-    for col in cols_features:
-        df_features_renamed[col] = df_features_renamed[col]
-        df_features_renamed.rename(columns={col: f"{col}_{{new_ch}}" }, inplace=True)  # We'll handle this in pivot
+    df_features = (
+        df_
+        .groupby(group_cols, as_index=False)
+        .agg(agg_dict)
+    )
 
-    # Step 3: Pivot table to wide format
-    df_pivot = df_features.pivot(index=["subject", "date"], columns="new_ch", values=cols_features)
+    # --- 4. Pivot to wide format on feature_name ---
+    df_features_wide = (
+        df_features
+        .pivot_table(
+            index=["file", "channel"],
+            columns="feature_name",
+            values="feature_value"
+        )
+        .reset_index()
+    )
 
-    # Step 4: Flatten MultiIndex columns
-    df_pivot.columns = [f"{ch}_{feat}" for feat, ch in df_pivot.columns]
+    # after pivot, "feature_name" is in the column index level, so flatten if needed
+    df_features_wide.columns.name = None  # remove the pivot column name
 
-    # Step 5: Reset index if needed
-    df_pivot = df_pivot.reset_index()
-    for col_score in SCORE_COLUMNS:
-        df_pivot[col_score] = df_features.groupby(["subject", "date"])[col_score].mean().values
-    df_pivot.to_csv("features_prep_combined_wide.csv", index=False)
+    # --- 5. Attach metadata (date, subject, rs_name) per file ---
+    df_meta = (
+        df_[["file", "subject", "rs_name", "date"]]
+        .drop_duplicates("file")
+    )
+
+    df_features_wide = df_features_wide.merge(df_meta, on="file", how="left")
+
+    # --- 6. Map new_ch from channel ---
+    df_features_wide["new_ch"] = df_features_wide["channel"].map(
+        lambda x: new_ch_mapping.get(x, "Unknown")
+    )
+
+    # --- 7. Attach SCORE_COLUMNS (one row per file) without iterrows ---
+    # if multiple rows per file, take the first (matches your previous `iloc[0]`)
+    df_scores = (
+        df_[["file"] + SCORE_COLUMNS]
+        .groupby("file", as_index=False)
+        .first()
+    )
+
+    df_save = df_features_wide.merge(df_scores, on="file", how="left")
+
+    # --- 8. Save ---
+    df_save.to_csv("features_prep_wide_per_rs_sess.csv", index=False)
+
+    ## IGNORE FROM HERE ON
+    # couple of debugging steps:
+    # df_features.query("subject == 'aDBS004' and date == '2020-02-18'")[["channel", "rs_name"]]
+    # df_features.query("channel == 'SC_0_left'").groupby(["subject", "date"])["rs_name"].count().reset_index().iloc[50:100]
+
+
+    # cols_features = [c for c in df_save.columns if c not in ["file", "date", "subject", "new_ch", "channel", "rs_name"] + SCORE_COLUMNS]
+    # #df_features_sess = df_features.copy()
+    # #df_features_sess.to_csv("df_sess_split_by_rs.csv")
+    # df_features = df_save.groupby(["subject", "date", "new_ch", "rs_name"])[cols_features].mean().reset_index()
+
+    #     #col_score = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
+    # for col_score in SCORE_COLUMNS:
+    #     df_features[col_score] = df_.groupby(["file", "new_ch"])[col_score].mean().values
+
+    # df_features = df_features.reset_index(drop=True)
+    # df_features.to_csv("features_prep_wide_per_rs_sess.csv")
+
+    # df_features = df_features.groupby(["subject", "date", "new_ch"])[cols_features].mean().reset_index()
+    # for col_score in SCORE_COLUMNS:
+    #     df_features[col_score] = df_.groupby(["subject", "date", "new_ch"])[col_score].mean().values
+
+    # # Step 2: Rename columns to include 'new_ch_' prefix
+    # df_features_renamed = df_features.copy()
+    # for col in cols_features:
+    #     df_features_renamed[col] = df_features_renamed[col]
+    #     df_features_renamed.rename(columns={col: f"{col}_{{new_ch}}" }, inplace=True)  # We'll handle this in pivot
+
+    # # Step 3: Pivot table to wide format
+    # df_pivot = df_features.pivot(index=["subject", "date"], columns="new_ch", values=cols_features)
+
+    # # Step 4: Flatten MultiIndex columns
+    # df_pivot.columns = [f"{ch}_{feat}" for feat, ch in df_pivot.columns]
+
+    # # Step 5: Reset index if needed
+    # df_pivot = df_pivot.reset_index()
+    # for col_score in SCORE_COLUMNS:
+    #     df_pivot[col_score] = df_features.groupby(["subject", "date"])[col_score].mean().values
+    # df_pivot.to_csv("features_prep_combined_wide.csv", index=False)
 
 features_names = df_["feature_name"].unique()
 chs_plt = ["VCVS_left", "VCVS_right", "Cortex_left", "Cortex_right"]

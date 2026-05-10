@@ -4,6 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 PLOT_ = False
+total_scores = ['YBOCS II Total Score', 'YBOCS I Total Score', 'HDRS Total Score', 'YMRS Total Score', 'BDI-Total Score', 'BAI-Total Score', 'POMS Total Score', 'DOCS Total Score', 'SDS Total Score', 'BIS Total Score', 'IUS Total Score']
+
+SEL_ONLY_TOTAL = True
 
 df_scores = pd.read_csv("map_scores/scores_date_mapped.csv")
 df_scores["date"] = pd.to_datetime(df_scores["date"])
@@ -14,13 +17,17 @@ for col in all_score_names:
     df_scores[col] = df_scores[col].replace("Pending", np.nan)
     df_scores[col] = df_scores[col].replace("95 Incomplete", np.nan)
 
+if SEL_ONLY_TOTAL:
+    scores_sel = total_scores
+else:
+    scores_sel = all_score_names
 corr_matrices = []
 for i, sub in enumerate(np.sort(df_scores["subject"].unique())):
     df_q = df_scores.query("subject == @sub").reset_index(drop=True).sort_values(by="date")        
     
     #df_q = df_q.dropna(subset=all_score_names)
-    corr_matrix = df_q[all_score_names].corr().dropna(axis=0, how="all").dropna(axis=1, how="all")
-    corr_matrix_add = df_q[all_score_names].corr()
+    corr_matrix = df_q[scores_sel].corr().dropna(axis=0, how="all").dropna(axis=1, how="all")
+    corr_matrix_add = df_q[scores_sel].corr()
     corr_matrices.append(corr_matrix_add)
 
     if PLOT_:
@@ -30,17 +37,17 @@ for i, sub in enumerate(np.sort(df_scores["subject"].unique())):
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
         plt.tight_layout()
-        plt.savefig(f"figures/scores/corr_matrix_{sub}.pdf")
+        plt.savefig(f"figures/scores/corr_matrix_total_only_{sub}.pdf")
 
 if PLOT_:
     plt.figure(figsize=(15, 15))
     plt.imshow(np.nanmean(corr_matrices, axis=0), cmap="coolwarm", vmin=-1, vmax=1)
     plt.colorbar()
-    plt.xticks(ticks=range(len(all_score_names)), labels=all_score_names, rotation=90)
-    plt.yticks(ticks=range(len(all_score_names)), labels=all_score_names)
+    plt.xticks(ticks=range(len(scores_sel)), labels=scores_sel, rotation=90)
+    plt.yticks(ticks=range(len(scores_sel)), labels=scores_sel)
     plt.title("Average Correlation Matrix across Subjects")
     plt.tight_layout()
-    plt.savefig("figures/scores/corr_matrix_avg.pdf")
+    plt.savefig("figures/scores/corr_matrix_toal_only.pdf")
 
 # PCA Analysis
 # Step 1: Eigen-decomposition
