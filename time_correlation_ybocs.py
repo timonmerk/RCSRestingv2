@@ -12,7 +12,7 @@ df_rs["days_since_first"] = (df_rs["date"] - df_rs.groupby("subject")["date"].tr
 
 # run correlation between ybocs and days since first date for each subject
 correlations = df_rs.groupby("subject").apply(lambda x: x[col_ybocs].corr(x["days_since_first"]))
-
+correlations.to_csv("correlations_ybocs_days_since_first.csv")
 # make a quick time plot of YBOCS scores over time for each subject, show them all in different panels, group by time
 import matplotlib.pyplot as plt
 subjects = df_rs["subject"].unique()
