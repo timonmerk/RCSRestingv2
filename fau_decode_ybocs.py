@@ -9,6 +9,7 @@ from xgboost import XGBRegressor, XGBClassifier
 import seaborn as sns
 from joblib import Parallel, delayed
 from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 df = pd.read_csv("FAUS_rs/fau_neural_combined.csv")
 col_decode = "YBOCS II Total Score"  # or "YBOCS II-Compulsions Sub-score" or "YBOCS II Total Score"
@@ -20,31 +21,46 @@ AU_cols = [col for col in df.columns if col.startswith("FAU_AU")]
 corr_ = []
 corr_shuffled = []
 
-for sub in subs:
-    df_sub = df.query("subject == @sub")
-    y_true_ = df_sub[col_decode].values
-    for AU_col in AU_cols:
-        y_pred = df_sub[AU_col].values
-        idx_na = np.isnan(y_true_) | np.isnan(y_pred)
-        y_true = y_true_[~idx_na]
-        y_pred = y_pred[~idx_na]
+sign_list = []
 
-        # get both from stats.pearsonr
-        corr, p_val = stats.pearsonr(y_true, y_pred)
-        corr_.append({
-            "subject": sub,
-            "AU": AU_col,
-            "corr": corr,
-            "p": p_val,
-        })
-        np.random.shuffle(y_true)
-        corr_shuff, p_val_shuff = stats.pearsonr(y_true, y_pred)
-        corr_shuffled.append({
-            "subject": sub,
-            "AU": AU_col,
-            "corr": corr_shuff,
-            "p": p_val_shuff,
-        })
+for index in tqdm(range(5000)):
+    corr_shuffled_idx = []
+    for sub in subs:
+        df_sub = df.query("subject == @sub")
+        y_true_ = df_sub[col_decode].values
+        for AU_col in AU_cols:
+            y_pred = df_sub[AU_col].values
+            idx_na = np.isnan(y_true_) | np.isnan(y_pred)
+            y_true = y_true_[~idx_na]
+            y_pred = y_pred[~idx_na]
+
+            # get both from stats.pearsonr
+            corr, p_val = stats.pearsonr(y_true, y_pred)
+            corr_.append({
+                "subject": sub,
+                "AU": AU_col,
+                "corr": corr,
+                "p": p_val,
+            })
+            np.random.shuffle(y_true)
+            corr_shuff, p_val_shuff = stats.pearsonr(y_true, y_pred)
+            corr_shuffled_idx.append({ # 
+                "subject": sub,
+                "AU": AU_col,
+                "corr": corr_shuff,
+                "p": p_val_shuff,
+                "index": index,
+            })
+    df_fau_corrs_shuffled = pd.DataFrame(corr_shuffled_idx)
+    rejected, pvals_corrected, _, _ = multipletests(
+        df_fau_corrs_shuffled["p"], alpha=0.05, method="fdr_bh"
+    )
+    # number of significant correlations after FDR correction
+    num_significant = np.sum(rejected)
+    sign_list.append({
+        "index": index,
+        "num_significant": num_significant,
+    })
 df_corr = pd.DataFrame(corr_)
 df_corr_shuff = pd.DataFrame(corr_shuffled)
 df_corr_shuff.to_csv("FAUS_rs/fau_neural_decoding_correlation_shuffled.csv", index=False)

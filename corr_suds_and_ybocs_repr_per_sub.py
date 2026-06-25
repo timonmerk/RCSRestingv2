@@ -260,6 +260,20 @@ df_res_region_subs = pd.DataFrame(df_res_region_subs)
 df_comb = df_res_region_subs.pivot(index="subject", columns="region", values="corr").reset_index()
 df_comb = df_comb.astype("float")
 
+# VCVS: df_comb.iloc[:, -2:].to_numpy().mean(): -0.01 pm 0.30
+# OFC: df_comb.iloc[3:, 1:5].to_numpy().mean(): -0.32 pm 0.32
+
+#permutation test if vcvs is signifcantly different from 0
+from scipy.stats import permutation_test
+def statistic(x, y):
+    return np.mean(x) - np.mean(y)
+vcvs_corrs = df_comb.iloc[:, -2:].to_numpy().flatten()
+ofc_corrs = df_comb.iloc[3:, 1:5].to_numpy().flatten()
+res_vcvs = permutation_test((vcvs_corrs, np.zeros_like(vcvs_corrs)), statistic, vectorized=False, n_resamples=10000)
+res_ofc = permutation_test((ofc_corrs, np.zeros_like(ofc_corrs)), statistic, vectorized=False, n_resamples=10000)
+print(f"VCVS: mean={vcvs_corrs.mean():.3f}, p={res_vcvs.pvalue:.4f}") # 0.87
+print(f"OFC: mean={ofc_corrs.mean():.3f}, p={res_ofc.pvalue:.4f}") # 0.0006
+
 plt.figure()
 sns.heatmap(data=df_comb.iloc[:, 1:][regions], cmap="coolwarm",  vmin=-0.8, vmax=0.8, annot=False, cbar_kws={"label": "Pearson r"})
 plt.yticks(np.arange(len(df_comb["subject"].values)), df_comb["subject"].values, )
